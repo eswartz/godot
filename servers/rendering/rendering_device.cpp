@@ -3194,6 +3194,8 @@ Error RenderingDevice::screen_prepare_for_drawing(DisplayServer::WindowID p_scre
 		framebuffer = driver->swap_chain_acquire_framebuffer(main_queue, it->value, resize_required);
 	}
 
+	if (framebuffer.id == 0)
+		abort();
 	ERR_FAIL_COND_V_MSG(framebuffer.id == 0, FAILED, "Unable to acquire framebuffer.");
 
 	// Store the framebuffer that will be used next to draw to this screen.

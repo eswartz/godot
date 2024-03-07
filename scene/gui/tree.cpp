@@ -1819,6 +1819,12 @@ int Tree::compute_item_height(TreeItem *p_item) const {
 	ERR_FAIL_COND_V(theme_cache.font.is_null(), 0);
 	int height = 0;
 
+	int item_min_height = MAX(theme_cache.font->get_height(theme_cache.font_size), p_item->get_custom_minimum_height());
+	if (fixed_item_size.y != 0) {
+		height = MAX(fixed_item_size.y, item_min_height);
+		return height;
+	}
+
 	for (int i = 0; i < columns.size(); i++) {
 		if (p_item->cells[i].dirty) {
 			const_cast<Tree *>(this)->update_item_cell(p_item, i);
@@ -1859,7 +1865,6 @@ int Tree::compute_item_height(TreeItem *p_item) const {
 			}
 		}
 	}
-	int item_min_height = MAX(theme_cache.font->get_height(theme_cache.font_size), p_item->get_custom_minimum_height());
 	if (height < item_min_height) {
 		height = item_min_height;
 	}
@@ -5579,9 +5584,18 @@ bool Tree::get_allow_search() const {
 	return allow_search;
 }
 
+Vector2i Tree::get_fixed_item_size() const { return fixed_item_size; }
+void Tree::set_fixed_item_size(Vector2i sz) {
+	fixed_item_size = sz;
+	queue_redraw();
+}
+
 void Tree::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("clear"), &Tree::clear);
 	ClassDB::bind_method(D_METHOD("create_item", "parent", "index"), &Tree::create_item, DEFVAL(Variant()), DEFVAL(-1));
+
+	ClassDB::bind_method(D_METHOD("get_fixed_item_size"), &Tree::get_fixed_item_size);
+	ClassDB::bind_method(D_METHOD("set_fixed_item_size", "size"), &Tree::set_fixed_item_size);
 
 	ClassDB::bind_method(D_METHOD("get_root"), &Tree::get_root);
 	ClassDB::bind_method(D_METHOD("set_column_custom_minimum_width", "column", "min_width"), &Tree::set_column_custom_minimum_width);

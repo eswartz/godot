@@ -448,7 +448,7 @@ private:
 	Vector2 range_drag_capture_pos;
 
 	bool propagate_mouse_activated = false;
-
+	Vector2i fixed_item_size = {};
 	//TreeItem *cursor_item;
 	//int cursor_column;
 
@@ -812,6 +812,9 @@ public:
 	bool get_allow_search() const;
 
 	Size2 get_minimum_size() const override;
+
+	Vector2i get_fixed_item_size() const;
+	void set_fixed_item_size(Vector2i sz);
 
 	Tree();
 	~Tree();

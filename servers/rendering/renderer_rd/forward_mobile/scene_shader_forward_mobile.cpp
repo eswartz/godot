@@ -215,6 +215,12 @@ void SceneShaderForwardMobile::ShaderData::set_code(const String &p_code) {
 			blend_attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
 			blend_attachment.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
+			// never triggered -- the code is set before we know geometry alpha is used
+			// if (forced_alpha) {
+			// 	print_line("forcing alpha on shader ");
+			// 	uses_blend_alpha = true; //force alpha used because of geometry
+			// }
+
 		} break;
 		case BLEND_MODE_ADD: {
 			blend_attachment.enable_blend = true;
@@ -318,7 +324,8 @@ void SceneShaderForwardMobile::ShaderData::set_code(const String &p_code) {
 				RD::PipelineDepthStencilState depth_stencil = depth_stencil_state;
 				RD::PipelineMultisampleState multisample_state;
 
-				if (uses_alpha || uses_blend_alpha) {
+				// forced_alpha never gets set in time
+				if (uses_alpha || uses_blend_alpha /* || forced_alpha */) {
 					// only allow these flags to go through if we have some form of msaa
 					if (alpha_antialiasing_mode == ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE) {
 						multisample_state.enable_alpha_to_coverage = true;

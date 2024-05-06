@@ -357,6 +357,8 @@ void MeshInstance3D::set_surface_override_material(int p_surface, const Ref<Mate
 	} else {
 		RS::get_singleton()->instance_set_surface_override_material(get_instance(), p_surface, RID());
 	}
+
+	update_configuration_warnings();
 }
 
 Ref<Material> MeshInstance3D::get_surface_override_material(int p_surface) const {
@@ -408,6 +410,7 @@ void MeshInstance3D::_mesh_changed() {
 	}
 
 	update_gizmos();
+	update_configuration_warnings();
 }
 
 MeshInstance3D *MeshInstance3D::create_debug_tangents_node() {
@@ -669,6 +672,51 @@ Ref<ArrayMesh> MeshInstance3D::bake_mesh_from_current_blend_shape_mix(Ref<ArrayM
 	}
 
 	return bake_mesh;
+}
+
+PackedStringArray MeshInstance3D::get_configuration_warnings() const {
+	PackedStringArray warnings = GeometryInstance3D::get_configuration_warnings();
+
+	// FIXME: not triggered when we want without hooking into all materials... :(
+	// ... also needs to be added to MultiMeshInstance3D
+
+	// Check that geometry fade options are used with transparency-enabled materials.
+	// Geometry fade enables alpha automatically regardless of material in the Forward+ renderer,
+	// but other renderers need to opt in.
+	if (mesh.is_valid() && OS::get_singleton()->get_current_rendering_method() != "forward_plus") {
+		bool using_geometry_fade = false;
+		if (get_visibility_range_fade_mode() != VISIBILITY_RANGE_FADE_DISABLED) {
+			using_geometry_fade = true;
+		}
+		if (!Math::is_zero_approx(get_transparency())) {
+			using_geometry_fade = true;
+		}
+		if (using_geometry_fade) {
+			// see if materials are compatible
+			bool any_transparent = false;
+
+			auto check_transparency = [&any_transparent](Ref<Material> material) {
+				BaseMaterial3D *base_material = Object::cast_to<BaseMaterial3D>(*material);
+				if (base_material) {
+					any_transparent |= base_material->get_transparency() != BaseMaterial3D::TRANSPARENCY_DISABLED;
+					any_transparent |= base_material->get_blend_mode() != BaseMaterial3D::BLEND_MODE_MIX;
+				}
+			};
+
+			for (Ref<Material> material : surface_override_materials) {
+				check_transparency(material);
+			}
+			for (int i = 0; i < mesh->get_surface_count(); i++) {
+				check_transparency(mesh->surface_get_material(i));
+			}
+
+			if (!any_transparent) {
+				warnings.push_back(RTR("When a MeshInstance3D uses transparent geometry (Transparency or Visibility Range options) the material(s) should also enable transparency (using Transparency or Blend Mode), else the geometry fade options will be ineffective.\nThis limitation only applies in the Mobile and Compatibility rendering backends."));
+			}
+		}
+	}
+
+	return warnings;
 }
 
 void MeshInstance3D::_bind_methods() {

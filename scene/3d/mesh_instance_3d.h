@@ -100,6 +100,7 @@ public:
 	void create_debug_tangents();
 
 	virtual AABB get_aabb() const override;
+	PackedStringArray get_configuration_warnings() const override;
 
 	Ref<ArrayMesh> bake_mesh_from_current_blend_shape_mix(Ref<ArrayMesh> p_existing = Ref<ArrayMesh>());
 

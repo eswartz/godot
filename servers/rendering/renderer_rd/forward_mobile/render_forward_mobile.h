@@ -262,6 +262,7 @@ private:
 		bool used_normal_texture = false;
 		bool used_depth_texture = false;
 		bool used_sss = false;
+		bool used_geometry_alpha = false;
 
 		struct ShadowPass {
 			uint32_t element_from;
@@ -393,6 +394,8 @@ protected:
 		INSTANCE_DATA_FLAG_MULTIMESH_HAS_CUSTOM_DATA = 1 << 15,
 		INSTANCE_DATA_FLAGS_PARTICLE_TRAIL_SHIFT = 16,
 		INSTANCE_DATA_FLAGS_PARTICLE_TRAIL_MASK = 0xFF,
+		INSTANCE_DATA_FLAGS_FADE_SHIFT = 24,
+		INSTANCE_DATA_FLAGS_FADE_MASK = 0xFFUL << INSTANCE_DATA_FLAGS_FADE_SHIFT
 	};
 
 	struct GeometryInstanceLightmapSH {

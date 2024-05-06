@@ -788,6 +788,13 @@ void RenderForwardMobile::_render_scene(RenderDataRD *p_render_data, const Color
 			using_subpass_post_process = false;
 		}
 
+		// doesn't have any effect
+		// if (scene_state.used_geometry_alpha) {
+		// 	print_line("not merging transparent pass");
+		// 	merge_transparent_pass = false;
+		// 	using_subpass_post_process = false;
+		// }
+
 		if (using_subpass_post_process) {
 			// We can do all in one go.
 			framebuffer = rb_data->get_color_fbs(RenderBufferDataForwardMobile::FB_CONFIG_RENDER_AND_POST_PASS);
@@ -1077,7 +1084,8 @@ void RenderForwardMobile::_render_scene(RenderDataRD *p_render_data, const Color
 				// this may be needed if we re-introduced steps that change info, not sure which do so in the previous implementation
 				//_setup_environment(p_render_data, is_reflection_probe, screen_size, !is_reflection_probe, p_default_bg_color, false);
 
-				RenderListParameters render_list_params(render_list[RENDER_LIST_ALPHA].elements.ptr(), render_list[RENDER_LIST_ALPHA].element_info.ptr(), render_list[RENDER_LIST_ALPHA].elements.size(), reverse_cull, PASS_MODE_COLOR, rp_uniform_set, spec_constant_base_flags, get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_WIREFRAME, Vector2(), p_render_data->scene_data->lod_distance_multiplier, p_render_data->scene_data->screen_mesh_lod_threshold, p_render_data->scene_data->view_count);
+				// (fixing PASS_MODE_COLOR_TRANSPARENT has no effect either, but lines up with use above)
+				RenderListParameters render_list_params(render_list[RENDER_LIST_ALPHA].elements.ptr(), render_list[RENDER_LIST_ALPHA].element_info.ptr(), render_list[RENDER_LIST_ALPHA].elements.size(), reverse_cull, PASS_MODE_COLOR_TRANSPARENT, rp_uniform_set, spec_constant_base_flags, get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_WIREFRAME, Vector2(), p_render_data->scene_data->lod_distance_multiplier, p_render_data->scene_data->screen_mesh_lod_threshold, p_render_data->scene_data->view_count);
 				render_list_params.framebuffer_format = fb_format;
 				render_list_params.subpass = RD::get_singleton()->draw_list_get_current_pass(); // Should now always be 0.
 
@@ -1783,6 +1791,7 @@ void RenderForwardMobile::_fill_render_list(RenderListType p_render_list, const 
 		scene_state.used_screen_texture = false;
 		scene_state.used_normal_texture = false;
 		scene_state.used_depth_texture = false;
+		scene_state.used_geometry_alpha = false;
 	}
 	uint32_t lightmap_captures_used = 0;
 
@@ -1829,6 +1838,25 @@ void RenderForwardMobile::_fill_render_list(RenderListType p_render_list, const 
 
 		bool uses_lightmap = false;
 		// bool uses_gi = false;
+		float fade_alpha = 1.0;
+
+		if (inst->fade_near || inst->fade_far) {
+			float fade_dist = inst->transform.origin.distance_to(p_render_data->scene_data->cam_transform.origin);
+			// Use `smoothstep()` to make opacity changes more gradual and less noticeable to the player.
+			if (inst->fade_far && fade_dist > inst->fade_far_begin) {
+				fade_alpha = Math::smoothstep(0.0f, 1.0f, 1.0f - (fade_dist - inst->fade_far_begin) / (inst->fade_far_end - inst->fade_far_begin));
+			} else if (inst->fade_near && fade_dist < inst->fade_near_end) {
+				fade_alpha = Math::smoothstep(0.0f, 1.0f, (fade_dist - inst->fade_near_begin) / (inst->fade_near_end - inst->fade_near_begin));
+			}
+		}
+
+		fade_alpha *= inst->force_alpha * inst->parent_fade_alpha;
+		flags |= (uint32_t(fade_alpha * 255.0) << INSTANCE_DATA_FLAGS_FADE_SHIFT) & INSTANCE_DATA_FLAGS_FADE_MASK;
+
+		if (fade_alpha < 0.999) {
+			scene_state.used_geometry_alpha = true;
+			// print_line("geometry fade active");
+		}
 
 		if (p_render_list == RENDER_LIST_OPAQUE) {
 			if (inst->lightmap_instance.is_valid()) {
@@ -1932,6 +1960,12 @@ void RenderForwardMobile::_fill_render_list(RenderListType p_render_list, const 
 #else
 				bool force_alpha = false;
 #endif
+
+				if (fade_alpha < 0.999) {
+					force_alpha = true;
+					// print_line("forcing alpha for inst at ", center);
+				}
+
 				if (!force_alpha && (surf->flags & GeometryInstanceSurfaceDataCache::FLAG_PASS_OPAQUE)) {
 					rl->add_element(surf);
 				}
@@ -2111,6 +2145,13 @@ void RenderForwardMobile::_render_list_template(RenderingDevice::DrawListID p_dr
 				material_uniform_set = surf->material_uniform_set;
 				shader = surf->shader;
 				surf->material->set_as_used();
+
+				// this has no effect; the shader's already been built by this point
+				// if (inst->fade_near || inst->fade_far || inst->force_alpha < 1.0 || inst->parent_fade_alpha < 1.0) {
+				// 	print_line("forcing alpha on shader");
+				// 	shader->forced_alpha = true;
+				// }
+
 #ifdef DEBUG_ENABLED
 			}
 #endif
@@ -2367,7 +2408,11 @@ void RenderForwardMobile::_geometry_instance_add_surface_with_material(GeometryI
 	bool has_read_screen_alpha = p_material->shader_data->uses_screen_texture || p_material->shader_data->uses_depth_texture || p_material->shader_data->uses_normal_texture;
 	bool has_base_alpha = p_material->shader_data->uses_alpha && (!p_material->shader_data->uses_alpha_clip || p_material->shader_data->uses_alpha_antialiasing);
 	bool has_blend_alpha = p_material->shader_data->uses_blend_alpha;
-	bool has_alpha = has_base_alpha || has_blend_alpha || has_read_screen_alpha;
+	bool has_geometry_alpha = ginstance->force_alpha < 0.999 || ginstance->parent_fade_alpha < 0.999 || ginstance->fade_far || ginstance->fade_near;
+	bool has_alpha = has_base_alpha || has_blend_alpha || has_read_screen_alpha || has_geometry_alpha;
+	// if (has_alpha) {
+	// 	print_line("has_alpha: ", has_alpha, " has_base ", has_base_alpha, " geom ", has_geometry_alpha);
+	// }
 
 	uint32_t flags = 0;
 
@@ -2394,7 +2439,8 @@ void RenderForwardMobile::_geometry_instance_add_surface_with_material(GeometryI
 	if (has_alpha || p_material->shader_data->depth_draw == SceneShaderForwardMobile::ShaderData::DEPTH_DRAW_DISABLED || p_material->shader_data->depth_test == SceneShaderForwardMobile::ShaderData::DEPTH_TEST_DISABLED) {
 		//material is only meant for alpha pass
 		flags |= GeometryInstanceSurfaceDataCache::FLAG_PASS_ALPHA;
-		if ((p_material->shader_data->uses_depth_prepass_alpha || p_material->shader_data->uses_alpha_antialiasing) && !(p_material->shader_data->depth_draw == SceneShaderForwardMobile::ShaderData::DEPTH_DRAW_DISABLED || p_material->shader_data->depth_test == SceneShaderForwardMobile::ShaderData::DEPTH_TEST_DISABLED)) {
+		// unlike forward-clustered, we need to check geometry-induced alpha here else we lose shadows
+		if ((p_material->shader_data->uses_depth_prepass_alpha || p_material->shader_data->uses_alpha_antialiasing || has_geometry_alpha) && !(p_material->shader_data->depth_draw == SceneShaderForwardMobile::ShaderData::DEPTH_DRAW_DISABLED || p_material->shader_data->depth_test == SceneShaderForwardMobile::ShaderData::DEPTH_TEST_DISABLED)) {
 			flags |= GeometryInstanceSurfaceDataCache::FLAG_PASS_DEPTH;
 			flags |= GeometryInstanceSurfaceDataCache::FLAG_PASS_SHADOW;
 		}

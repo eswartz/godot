@@ -97,6 +97,7 @@ public:
 		};
 
 		bool valid = false;
+		bool forced_alpha = false;
 		RID version;
 		uint64_t vertex_input_mask = 0;
 		PipelineCacheRD pipelines[CULL_VARIANT_MAX][RS::PRIMITIVE_MAX][SHADER_VERSION_MAX];

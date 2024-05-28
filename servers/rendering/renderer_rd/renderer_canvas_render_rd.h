@@ -158,6 +158,7 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 		enum BlendMode { //used internally
 			BLEND_MODE_MIX,
 			BLEND_MODE_ADD,
+			BLEND_MODE_ADD_SPLAT,
 			BLEND_MODE_SUB,
 			BLEND_MODE_MUL,
 			BLEND_MODE_PMALPHA,

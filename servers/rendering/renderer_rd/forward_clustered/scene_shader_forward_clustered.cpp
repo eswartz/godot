@@ -87,6 +87,7 @@ void SceneShaderForwardClustered::ShaderData::set_code(const String &p_code) {
 	actions.entry_point_stages["light"] = ShaderCompiler::STAGE_FRAGMENT;
 
 	actions.render_mode_values["blend_add"] = Pair<int *, int>(&blend_mode, BLEND_MODE_ADD);
+	actions.render_mode_values["blend_add_splat"] = Pair<int *, int>(&blend_mode, BLEND_MODE_ADD_SPLAT);
 	actions.render_mode_values["blend_mix"] = Pair<int *, int>(&blend_mode, BLEND_MODE_MIX);
 	actions.render_mode_values["blend_sub"] = Pair<int *, int>(&blend_mode, BLEND_MODE_SUB);
 	actions.render_mode_values["blend_mul"] = Pair<int *, int>(&blend_mode, BLEND_MODE_MUL);
@@ -212,6 +213,17 @@ void SceneShaderForwardClustered::ShaderData::set_code(const String &p_code) {
 			blend_attachment.src_color_blend_factor = RD::BLEND_FACTOR_SRC_ALPHA;
 			blend_attachment.dst_color_blend_factor = RD::BLEND_FACTOR_ONE;
 			blend_attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_SRC_ALPHA;
+			blend_attachment.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
+			uses_blend_alpha = true; //force alpha used because of blend
+
+		} break;
+		case BLEND_MODE_ADD_SPLAT: {
+			blend_attachment.enable_blend = true;
+			blend_attachment.alpha_blend_op = RD::BLEND_OP_ADD;
+			blend_attachment.color_blend_op = RD::BLEND_OP_ADD;
+			blend_attachment.src_color_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+			blend_attachment.dst_color_blend_factor = RD::BLEND_FACTOR_ONE;
+			blend_attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
 			blend_attachment.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
 			uses_blend_alpha = true; //force alpha used because of blend
 

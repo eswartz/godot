@@ -680,6 +680,9 @@ void BaseMaterial3D::_update_shader() {
 		case BLEND_MODE_ADD:
 			code += "blend_add";
 			break;
+		case BLEND_MODE_ADD_SPLAT:
+			code += "blend_add_splat";
+			break;
 		case BLEND_MODE_SUB:
 			code += "blend_sub";
 			break;
@@ -1807,6 +1810,9 @@ void fragment() {)";
 	// Detail Blend Mode: Add
 	vec3 detail = mix(ALBEDO.rgb, ALBEDO.rgb + detail_tex.rgb, detail_tex.a);
 )";
+			} break;
+			case BLEND_MODE_ADD_SPLAT: {
+				// ignore for now
 			} break;
 			case BLEND_MODE_SUB: {
 				code += R"(
@@ -3268,6 +3274,7 @@ void BaseMaterial3D::_bind_methods() {
 
 	BIND_ENUM_CONSTANT(BLEND_MODE_MIX);
 	BIND_ENUM_CONSTANT(BLEND_MODE_ADD);
+	BIND_ENUM_CONSTANT(BLEND_MODE_ADD_SPLAT);
 	BIND_ENUM_CONSTANT(BLEND_MODE_SUB);
 	BIND_ENUM_CONSTANT(BLEND_MODE_MUL);
 	BIND_ENUM_CONSTANT(BLEND_MODE_PREMULT_ALPHA);

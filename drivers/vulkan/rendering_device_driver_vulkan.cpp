@@ -2263,6 +2263,13 @@ Error RenderingDeviceDriverVulkan::command_queue_execute_and_present(CommandQueu
 		device_queue.submit_mutex.lock();
 		err = vkQueueSubmit(device_queue.queue, 1, &submit_info, vk_fence);
 		device_queue.submit_mutex.unlock();
+
+		// EJS
+		if (err == VK_ERROR_DEVICE_LOST) {
+			OS::get_singleton()->printerr("%s:%s:%d: Vulkan device lost, aborting", FUNCTION_STR, __FILE__, __LINE__);
+			abort();
+		}
+
 		ERR_FAIL_COND_V(err != VK_SUCCESS, FAILED);
 
 		if (fence != nullptr && !command_queue->pending_semaphores_for_fence.is_empty()) {

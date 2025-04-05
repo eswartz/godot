@@ -456,6 +456,7 @@ private:
 	Vector2 range_drag_capture_pos;
 
 	bool propagate_mouse_activated = false;
+	Vector2i fixed_item_size = {};
 
 	Rect2 custom_popup_rect;
 	int edited_col = -1;
@@ -834,6 +835,9 @@ public:
 	bool is_auto_tooltip_enabled() const;
 
 	Size2 get_minimum_size() const override;
+
+	Vector2i get_fixed_item_size() const;
+	void set_fixed_item_size(Vector2i sz);
 
 	Tree();
 	~Tree();
